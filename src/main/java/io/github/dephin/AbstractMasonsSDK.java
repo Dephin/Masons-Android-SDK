@@ -4,7 +4,6 @@ import io.github.dephin.connection.MasonsConnection;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -19,16 +18,16 @@ import io.github.dephin.session.CallerSession;
 
 public abstract class AbstractMasonsSDK {
     private Map<String, CallerSession> accountKey2CallerSessionMapping = new HashMap<String, CallerSession>();
-    private Map<String, CallerSession> sessionID2CallerSessionMapping= new HashMap<String, CallerSession>();
-    private Map<String, CalleeSession> accountKey2CalleeSessionMapping= new HashMap<String, CalleeSession>();
-    private Map<String, CalleeSession> sessionID2CalleeSessionMapping= new HashMap<String, CalleeSession>();
+    private Map<String, CallerSession> sessionID2CallerSessionMapping = new HashMap<String, CallerSession>();
+    private Map<String, CalleeSession> accountKey2CalleeSessionMapping = new HashMap<String, CalleeSession>();
+    private Map<String, CalleeSession> sessionID2CalleeSessionMapping = new HashMap<String, CalleeSession>();
     private MasonsConnection connection;
 
-    public AbstractMasonsSDK(MasonsSDKConfig config) throws URISyntaxException {
+    public AbstractMasonsSDK(MasonsSDKConfig config) {
         this.connection = new MasonsConnection(this, config);
     }
 
-    public void start() throws JSONException {
+    public void start() {
         this.connection.start();
     }
 

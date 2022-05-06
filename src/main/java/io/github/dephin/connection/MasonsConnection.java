@@ -26,23 +26,31 @@ public class MasonsConnection implements MDPHandler {
     private AbstractMasonsSDK sdk;
     private MasonsSDKConfig config;
 
-    public MasonsConnection(AbstractMasonsSDK sdk, MasonsSDKConfig config) throws URISyntaxException {
-        this.config = config;
-        this.sdk = sdk;
-        Map<String, String> headers = new HashMap<String, String>();
-        headers.put("Sec-WebSocket-Protocol", "Duplex");
-        headers.put("Access-Token", config.getAgentToken());
-        headers.put("Node-ID", config.getNodeUrl());
-        this.mdpClient = new MDPClient(new URI(this.config.getWsUrl()), this, headers, 1000);
+    public MasonsConnection(AbstractMasonsSDK sdk, MasonsSDKConfig config) {
+        try {
+            this.config = config;
+            this.sdk = sdk;
+            Map<String, String> headers = new HashMap<String, String>();
+            headers.put("Sec-WebSocket-Protocol", "Duplex");
+            headers.put("Access-Token", config.getAgentToken());
+            headers.put("Node-ID", config.getNodeUrl());
+            this.mdpClient = new MDPClient(new URI(this.config.getWsUrl()), this, headers, 1000);
+        } catch (URISyntaxException e) {
+            e.printStackTrace();
+        }
     }
 
-    private void createNode() throws JSONException {
-        String nodeUrl = this.config.getNodeUrl();
-        Map<String, String> headers = new HashMap<String, String>();
-        headers.put("Access-Token", this.config.getAgentToken());
-        String resp = HTTPUtil.post(nodeUrl, "", headers);
-        JSONObject respObj = new JSONObject(resp);
-        this.nodeID = respObj.getString("node_id");
+    private void createNode() {
+        try {
+            String nodeUrl = this.config.getNodeUrl();
+            Map<String, String> headers = new HashMap<String, String>();
+            headers.put("Access-Token", this.config.getAgentToken());
+            String resp = HTTPUtil.post(nodeUrl, "", headers);
+            JSONObject respObj = new JSONObject(resp);
+            this.nodeID = respObj.getString("node_id");
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
     }
 
     public void start() throws JSONException {
