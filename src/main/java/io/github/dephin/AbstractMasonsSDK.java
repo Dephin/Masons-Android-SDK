@@ -24,7 +24,7 @@ public abstract class AbstractMasonsSDK {
     private Map<String, CalleeSession> sessionID2CalleeSessionMapping= new HashMap<String, CalleeSession>();
     private MasonsConnection connection;
 
-    AbstractMasonsSDK(MasonsSDKConfig config) throws URISyntaxException {
+    protected AbstractMasonsSDK(MasonsSDKConfig config) throws URISyntaxException {
         this.connection = new MasonsConnection(this, config);
     }
 

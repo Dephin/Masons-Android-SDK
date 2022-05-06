@@ -58,7 +58,30 @@ public class MDPClient extends WebSocketClient implements MDPProtocol {
 
     @Override
     public void onOpen(ServerHandshake handshakedata) {
+        backOffGenerator.reset();
 
+        handlerCount.keys().forEach(new JsonArray.ListIterator<String>() {
+            @Override
+            public void call(int index, String topic) {
+                assert handlerCount.getNumber(topic) > 0 : "Handlers registried on " + topic
+                        + " shouldn't be empty";
+                sendUnsubscribe(topic);
+                sendSubscribe(topic);
+            }
+        });
+
+        if (queuedMessages.length() > 0) {
+            JsonArray copy = queuedMessages.copy();
+            queuedMessages.clear();
+            // Drain any messages that came in while the channel was not open.
+            copy.forEach(new JsonArray.ListIterator<JsonObject>() {
+                @Override
+                public void call(int index, JsonObject msg) {
+                    send(msg);
+                }
+            });
+        }
+        super.handleOpened();
     }
 
     @Override
@@ -142,5 +165,61 @@ public class MDPClient extends WebSocketClient implements MDPProtocol {
 
     private String generateUniID() {
         return UUID.randomUUID().toString();
+    }
+
+    public void reconnect() {
+        if (getReadyState() == State.OPEN || getReadyState() == State.CONNECTING) {
+            return;
+        }
+        if (webSocket != null) {
+            webSocket.close();
+        }
+
+        this.connect(serverUri, options);
+    }
+
+    @Override
+    protected void doClose() {
+        reconnect = false;
+        backOffGenerator.reset();
+        queuedMessages.clear();
+        super.doClose();
+    }
+
+    protected void send(JsonObject msg) {
+        if (getReadyState() == State.OPEN) {
+            super.send(msg);
+            return;
+        }
+        if (reconnect) {
+            reconnect();
+        }
+        String type = msg.getString(WebSocketBus.TYPE);
+        if ("ping".equals(type) || "register".equals(type)) {
+            return;
+        }
+        queuedMessages.push(msg);
+    }
+
+    public void handlePostClose() {
+        if (reconnect) {
+            Platform.scheduler().scheduleDelay(backOffGenerator.next().targetDelay,
+                    new Handler<Void>() {
+                        @Override
+                        public void handle(Void event) {
+                            if (reconnect) {
+                                reconnect();
+                            }
+                        }
+                    });
+        }
+        super.handlePostClose();
+    }
+
+    protected void doClose() {
+        reconnect = false;
+        backOffGenerator.reset();
+        queuedMessages.clear();
+        super.doClose();
     }
 }
