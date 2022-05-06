@@ -77,7 +77,7 @@ public class MDPClient extends WebSocketClient implements MDPProtocol {
             copy.forEach(new JsonArray.ListIterator<JsonObject>() {
                 @Override
                 public void call(int index, JsonObject msg) {
-                    send(msg);
+                    this.send(msg);
                 }
             });
         }
