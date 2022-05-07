@@ -26,17 +26,9 @@ public class MasonsConnection implements MDPHandler {
     private AbstractMasonsSDK sdk;
     private MasonsSDKConfig config;
 
-    public MasonsConnection(AbstractMasonsSDK sdk, MasonsSDKConfig config) throws URISyntaxException {
+    public MasonsConnection(AbstractMasonsSDK sdk, MasonsSDKConfig config) {
         this.config = config;
         this.sdk = sdk;
-        Map<String, String> headers = new HashMap<String, String>();
-        headers.put("Sec-WebSocket-Protocol", "Duplex");
-        headers.put("Access-Token", config.getAgentToken());
-        headers.put("Node-ID", config.getNodeUrl());
-        this.mdpClient = new MDPClient(
-                this.config.getWsUrl(), this, headers,
-                this.config.getConnectTimeout(), this.config.getRpcTimeout()
-        );
     }
 
     private void createNode() throws JSONException {
@@ -50,6 +42,15 @@ public class MasonsConnection implements MDPHandler {
 
     public void start() throws JSONException {
         this.createNode();
+        Map<String, String> headers = new HashMap<String, String>();
+        headers.put("Sec-WebSocket-Protocol", "Duplex");
+        headers.put("Access-Token", config.getAgentToken());
+        headers.put("Node-ID", this.nodeID);
+
+        this.mdpClient = new MDPClient(
+                this.config.getWsUrl(), this, headers,
+                this.config.getConnectTimeout(), this.config.getRpcTimeout()
+        );
         this.mdpClient.connect();
     }
 
