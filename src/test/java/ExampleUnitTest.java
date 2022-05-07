@@ -5,6 +5,9 @@ import org.java_websocket.handshake.ServerHandshake;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
@@ -74,14 +77,23 @@ public class ExampleUnitTest {
                 }
             };
             sdk.start();
-            Thread.sleep(2000);
-            Map<String, Object> data = new HashMap<>();
-            KnockResult result = sdk.broadcastKnock("12345678", "hi", data);
-            if (result != null) {
-                System.out.print(result.getText());
-            }
 
-        } catch (URISyntaxException | JSONException | InterruptedException e) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+            while (true) {
+                System.out.print("In:");
+                String line = reader.readLine();
+                if (line.equals("quit")) {
+                    sdk.stop();
+                    break;
+                } else if (line.equals("knock")) {
+                    Map<String, Object> data = new HashMap<>();
+                    KnockResult result = sdk.broadcastKnock("12345678", "hi", data);
+                    if (result != null) {
+                        System.out.print(result.getText());
+                    }
+                }
+            }
+        } catch (URISyntaxException | JSONException | IOException e) {
             e.printStackTrace();
         }
     }
