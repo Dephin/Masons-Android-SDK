@@ -1,36 +1,47 @@
 package io.github.dephin.mdp;
 
-import org.java_websocket.client.WebSocketClient;
+import org.java_websocket.WebSocket;
 import org.java_websocket.drafts.Draft_6455;
-import org.java_websocket.handshake.ServerHandshake;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.channels.NotYetConnectedException;
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 
-public class MDPClient extends WebSocketClient implements MDPProtocol {
+public class MDPClient implements MDPProtocol {
+    private boolean connected = false;
     private MDPHandler handler;
     private Map<String, RPCWaiter> rpcWaiters = new HashMap<String, RPCWaiter>();
     private Set<String> ackCache = new HashSet<String>();
     private long rpcTimeout = 1L;
+    private int connectTimeout = 100;
+    private URI uri;
+    private Timer reconnectController = new Timer();
+    private ConcurrentLinkedQueue<String> messageQueue = new ConcurrentLinkedQueue<String>();
+    private Map<String, String> httpHeaders;
+    private WebSocketEndpoint ws = null;
 
-    public MDPClient(URI uri, MDPHandler handler) {
-        super(uri);
+    public MDPClient(String uriStr, MDPHandler handler, Map<String, String> httpHeaders) {
+        try {
+            this.uri = new URI(uriStr);
+        } catch (URISyntaxException e) {
+            e.printStackTrace();
+        }
         this.handler = handler;
+        this.httpHeaders = httpHeaders;
     }
 
-    public MDPClient(URI uri, MDPHandler handler, Map<String, String> headers, int connectTimeout) {
-        super(uri, new Draft_6455(), headers, connectTimeout);
-        this.handler = handler;
-    }
-
-    public MDPClient(URI uri, MDPHandler handler, Map<String, String> headers, int connectTimeout, long rpcTimeout) {
-        super(uri, new Draft_6455(), headers, connectTimeout);
-        this.handler = handler;
+    public MDPClient(String uriStr, MDPHandler handler, Map<String, String> httpHeaders,
+                     int connectTimeout, long rpcTimeout) {
+        this(uriStr, handler, httpHeaders);
         this.rpcTimeout = rpcTimeout;
+        this.connectTimeout = connectTimeout;
     }
+
 
     public void sendEvent(String event, JSONObject data) throws JSONException {
         JSONObject jsonObject = new JSONObject();
@@ -55,92 +66,142 @@ public class MDPClient extends WebSocketClient implements MDPProtocol {
         return null;
     }
 
-
-    @Override
-    public void onOpen(ServerHandshake handshakedata) {
-        backOffGenerator.reset();
-
-        handlerCount.keys().forEach(new JsonArray.ListIterator<String>() {
-            @Override
-            public void call(int index, String topic) {
-                assert handlerCount.getNumber(topic) > 0 : "Handlers registried on " + topic
-                        + " shouldn't be empty";
-                sendUnsubscribe(topic);
-                sendSubscribe(topic);
+    public void connect() {
+        if (null != this.ws) {
+            if (this.webSocketIsOpen() || this.webSocketIsConnecting()) {
+                return;
             }
-        });
-
-        if (queuedMessages.length() > 0) {
-            JsonArray copy = queuedMessages.copy();
-            queuedMessages.clear();
-            // Drain any messages that came in while the channel was not open.
-            copy.forEach(new JsonArray.ListIterator<JsonObject>() {
-                @Override
-                public void call(int index, JsonObject msg) {
-                    this.send(msg);
-                }
-            });
+            this.ws.close();
+            this.ws = null;
         }
-        super.handleOpened();
+        this.ws = new WebSocketEndpoint(
+                this.uri, new Draft_6455(),
+                this.httpHeaders, this.connectTimeout, this
+        );
+        this.ws.connect();
     }
 
-    @Override
+    public void close() {
+        this.reconnectController.cancel();
+        this.messageQueue.clear();
+        this.ws.close();
+    }
+
+    public void onOpen() {
+        this.connected = true;
+        this.reconnectController.cancel();
+
+        if (this.messageQueue.size() > 0) {
+            // Drain any messages that came in while the channel was not open.
+            Iterator<String> iter = this.messageQueue.iterator();
+
+            for (; iter.hasNext(); ) {
+                this.send(iter.next());
+            }
+
+            this.messageQueue.clear();
+        }
+    }
+
+
+    public void onClose(int code, String reason, boolean remote) {
+        this.reconnect();
+    }
+
+    public void onError(Exception ex) {
+
+    }
+
     public void onMessage(String message) {
         try {
-            this.processMessage(message);
+
+            if (message.equals("0xa")) {
+                this.send("0xb");
+                return;
+            }
+
+            JSONObject jsonObject = new JSONObject(message);
+
+            if (jsonObject.has("msg_id")) {
+                String msgID = jsonObject.getString("msg_id");
+                if (this.ackCache.contains(msgID)) {
+                    JSONObject ack = new JSONObject();
+                    ack.put("ack", msgID);
+                    this.send(ack.toString());
+                    this.ackCache.remove(msgID);
+                }
+            }
+
+            if (jsonObject.has("ack")) {
+                String ack = jsonObject.getString("ack");
+                JSONObject reply = new JSONObject();
+                reply.put("ack", ack);
+                this.send(reply.toString());
+                return;
+            }
+
+            if (jsonObject.has("rpc_id")) {
+                String rpcID = jsonObject.getString("rpc_id");
+                Object data = jsonObject.get("data");
+                this.receiveRpcResponse(rpcID, (JSONObject) data);
+                return;
+            }
+
+            if (jsonObject.has("event")) {
+                String event = jsonObject.getString("event");
+                JSONObject data = (JSONObject) jsonObject.get("data");
+                this.receiveEvent(event, data);
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    @Override
-    public void onClose(int code, String reason, boolean remote) {
 
-    }
-
-    @Override
-    public void onError(Exception ex) {
-
-    }
-
-    private void processMessage(String message) throws Exception {
-        if (message.equals("0xa")) {
-            this.send("0xb");
-            return;
-        }
-
-        JSONObject jsonObject = new JSONObject(message);
-
-        if (jsonObject.has("msg_id")) {
-            String msgID = jsonObject.getString("msg_id");
-            if (this.ackCache.contains(msgID)) {
-                JSONObject ack = new JSONObject();
-                ack.put("ack", msgID);
-                this.send(ack.toString());
-                this.ackCache.remove(msgID);
+    private void send(String msg) {
+        try {
+            if (null == this.ws) {
+                throw new NotYetConnectedException();
             }
+            this.ws.send(msg);
+        } catch (NotYetConnectedException e) {
+            this.reconnect();
+            this.messageQueue.add(msg);
+        }
+    }
+
+    private void reconnect() {
+        if (null != this.ws) {
+            this.ws.close();
+            this.ws = null;
         }
 
-        if (jsonObject.has("ack")) {
-            String ack = jsonObject.getString("ack");
-            JSONObject reply = new JSONObject();
-            reply.put("ack", ack);
-            this.send(reply.toString());
+        this.connected = false;
+
+        this.reconnectController.schedule(
+                new TimerTask() {
+                    @Override
+                    public void run() {
+                        doReconnect();
+                    }
+                }, 0L, 2000L
+        );
+    }
+
+    private synchronized void doReconnect() {
+        if (this.connected) {
+            this.reconnectController.cancel();
             return;
         }
+        this.connect();
+    }
 
-        if (jsonObject.has("rpc_id")) {
-            String rpcID = jsonObject.getString("rpc_id");
-            Object data = jsonObject.get("data");
-            this.receiveRpcResponse(rpcID, (JSONObject) data);
-            return;
-        }
+    private boolean webSocketIsOpen() {
+        return this.ws.getReadyState() == WebSocket.READYSTATE.OPEN;
+    }
 
-        if (jsonObject.has("event")) {
-            String event = jsonObject.getString("event");
-            JSONObject data = (JSONObject) jsonObject.get("data");
-            this.receiveEvent(event, data);
-        }
+    private boolean webSocketIsConnecting() {
+        return this.ws.getReadyState() == WebSocket.READYSTATE.CONNECTING;
     }
 
     private String waitForRpcResponse(String rpcID) {
@@ -165,61 +226,5 @@ public class MDPClient extends WebSocketClient implements MDPProtocol {
 
     private String generateUniID() {
         return UUID.randomUUID().toString();
-    }
-
-    public void reconnect() {
-        if (getReadyState() == State.OPEN || getReadyState() == State.CONNECTING) {
-            return;
-        }
-        if (webSocket != null) {
-            webSocket.close();
-        }
-
-        this.connect(serverUri, options);
-    }
-
-    @Override
-    protected void doClose() {
-        reconnect = false;
-        backOffGenerator.reset();
-        queuedMessages.clear();
-        super.doClose();
-    }
-
-    protected void send(JsonObject msg) {
-        if (getReadyState() == State.OPEN) {
-            super.send(msg);
-            return;
-        }
-        if (reconnect) {
-            reconnect();
-        }
-        String type = msg.getString(WebSocketBus.TYPE);
-        if ("ping".equals(type) || "register".equals(type)) {
-            return;
-        }
-        queuedMessages.push(msg);
-    }
-
-    public void handlePostClose() {
-        if (reconnect) {
-            Platform.scheduler().scheduleDelay(backOffGenerator.next().targetDelay,
-                    new Handler<Void>() {
-                        @Override
-                        public void handle(Void event) {
-                            if (reconnect) {
-                                reconnect();
-                            }
-                        }
-                    });
-        }
-        super.handlePostClose();
-    }
-
-    protected void doClose() {
-        reconnect = false;
-        backOffGenerator.reset();
-        queuedMessages.clear();
-        super.doClose();
     }
 }
