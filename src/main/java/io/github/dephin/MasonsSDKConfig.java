@@ -1,8 +1,8 @@
-package io.github.dephin.session.models;
+package io.github.dephin;
 
 public class MasonsSDKConfig {
-    private String wsUrl;
-    private String nodeUrl;
+    private String wsUrl = "wss://svc.masons.mrs.ai/api/v1/masons";
+    private String nodeUrl = "https://svc.masons.mrs.ai/api/v1/masons/nodes";
     private String agentToken;
 
     public MasonsSDKConfig(String agentToken) {

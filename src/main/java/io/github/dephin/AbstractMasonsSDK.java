@@ -11,7 +11,6 @@ import java.util.Map;
 import io.github.dephin.connection.models.KnockResult;
 import io.github.dephin.session.models.CreatingSessionOfCallee;
 import io.github.dephin.session.models.ExitingSessionOfCaller;
-import io.github.dephin.session.models.MasonsSDKConfig;
 import io.github.dephin.session.models.ReplyFromCallee;
 import io.github.dephin.session.models.UtteranceFromCaller;
 import io.github.dephin.session.CalleeSession;

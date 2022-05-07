@@ -2,7 +2,7 @@ package io.github.dephin.connection;
 
 import io.github.dephin.connection.models.UtteranceResponse;
 import io.github.dephin.session.models.CreatingSessionOfCallee;
-import io.github.dephin.session.models.MasonsSDKConfig;
+import io.github.dephin.MasonsSDKConfig;
 import io.github.dephin.session.models.ReplyFromCallee;
 import io.github.dephin.session.models.UtteranceFromCaller;
 import org.json.JSONException;
