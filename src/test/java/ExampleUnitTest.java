@@ -22,11 +22,6 @@ import io.github.dephin.session.models.MasonsSDKConfig;
 import io.github.dephin.session.models.ReplyFromCallee;
 import io.github.dephin.session.models.UtteranceFromCaller;
 
-/**
- * Example local unit test, which will execute on the development machine (host).
- *
- * @see <a href="http://d.android.com/tools/testing">Testing documentation</a>
- */
 public class ExampleUnitTest {
     @Test
     public void addition_isCorrect() {
@@ -53,8 +48,8 @@ public class ExampleUnitTest {
     @Test
     public void startApp() {
         try {
-            MasonsSDKConfig config = new MasonsSDKConfig();
-            config.setAgentToken("b4c149da-c466-4cd3-9170-8b66a882aec9");
+            MasonsSDKConfig config = new MasonsSDKConfig(
+                    "b4c149da-c466-4cd3-9170-8b66a882aec9");
             config.setNodeUrl("http://localhost:8400/api/v1/masons/nodes");
             config.setWsUrl("ws://localhost:8400/api/v1/masons");
             AbstractMasonsSDK sdk = new AbstractMasonsSDK(config) {
@@ -100,7 +95,7 @@ public class ExampleUnitTest {
             WebSocketClient ws = new WebSocketClient(new URI(uri), new Draft_6455(), httpHeaders, 1) {
 
                 @Override
-                public void onOpen(ServerHandshake handshakedata) {
+                public void onOpen(ServerHandshake handshake) {
 
                 }
 

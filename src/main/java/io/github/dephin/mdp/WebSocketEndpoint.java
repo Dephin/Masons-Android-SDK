@@ -30,21 +30,21 @@ public class WebSocketEndpoint extends WebSocketClient {
 
     @Override
     public void onOpen(ServerHandshake serverHandshake) {
-
+        this.mdpClient.onOpen();
     }
 
     @Override
     public void onMessage(String s) {
-
+        this.mdpClient.onMessage(s);
     }
 
     @Override
     public void onClose(int i, String s, boolean b) {
-
+        this.mdpClient.onClose(i, s, b);
     }
 
     @Override
     public void onError(Exception e) {
-
+        this.mdpClient.onError(e);
     }
 }

@@ -5,10 +5,12 @@ public class MasonsSDKConfig {
     private String nodeUrl;
     private String agentToken;
 
-    public MasonsSDKConfig() {
+    public MasonsSDKConfig(String agentToken) {
+        this.agentToken = agentToken;
     }
 
-    public MasonsSDKConfig(String wsUrl, String nodeUrl) {
+    public MasonsSDKConfig(String agentToken, String wsUrl, String nodeUrl) {
+        this.agentToken = agentToken;
         this.wsUrl = wsUrl;
         this.nodeUrl = nodeUrl;
     }
