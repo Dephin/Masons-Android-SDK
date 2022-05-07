@@ -1,12 +1,14 @@
 package io.github.dephin.mdp;
 
+import org.json.JSONObject;
+
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 public class RPCWaiter {
-    private String result = null;
-    private Semaphore lock = new Semaphore(1);
-    private long timeout = 1L;
+    private JSONObject result = null;
+    private Semaphore lock = new Semaphore(0);
+    private long timeout;
 
     public RPCWaiter() {
     }
@@ -19,6 +21,7 @@ public class RPCWaiter {
     public void acquire() {
         try {
             this.lock.tryAcquire(this.timeout, TimeUnit.MILLISECONDS);
+//            this.lock.acquire();
         } catch (InterruptedException e) {
             e.printStackTrace();
         } finally {
@@ -31,11 +34,11 @@ public class RPCWaiter {
         this.lock.release();
     }
 
-    public String getResult() {
+    public JSONObject getResult() {
         return result;
     }
 
-    public void setResult(String result) {
+    public void setResult(JSONObject result) {
         this.result = result;
     }
 }

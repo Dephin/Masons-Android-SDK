@@ -4,6 +4,7 @@ import io.github.dephin.connection.MasonsConnection;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -23,7 +24,7 @@ public abstract class AbstractMasonsSDK {
     private Map<String, CalleeSession> sessionID2CalleeSessionMapping = new HashMap<String, CalleeSession>();
     private MasonsConnection connection;
 
-    public AbstractMasonsSDK(MasonsSDKConfig config) {
+    protected AbstractMasonsSDK(MasonsSDKConfig config) {
         this.connection = new MasonsConnection(this, config);
     }
 
@@ -47,17 +48,19 @@ public abstract class AbstractMasonsSDK {
             return new KnockResult();
         }
 
-        String sessionID = resp.getString("session_id");
-        boolean success = resp.getBoolean("success");
-        String respText = resp.getString("text");
 
-        if (success) {
-            this.createCallerSession(sessionID, accountKey);
-        }
+        boolean success = resp.getBoolean("success");
 
         KnockResult result = new KnockResult();
-        result.setSuccess(success);
-        result.setText(respText);
+
+        if (success) {
+            String sessionID = resp.getString("session_id");
+            String respText = resp.getString("text");
+            result.setSuccess(true);
+            result.setText(respText);
+            result.setSessionID(sessionID);
+            this.createCallerSession(sessionID, accountKey);
+        }
 
         return result;
     }
