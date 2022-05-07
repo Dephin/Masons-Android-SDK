@@ -33,7 +33,10 @@ public class MasonsConnection implements MDPHandler {
         headers.put("Sec-WebSocket-Protocol", "Duplex");
         headers.put("Access-Token", config.getAgentToken());
         headers.put("Node-ID", config.getNodeUrl());
-        this.mdpClient = new MDPClient(new URI(this.config.getWsUrl()), this, headers, 1000);
+        this.mdpClient = new MDPClient(
+                this.config.getWsUrl(), this, headers,
+                this.config.getConnectTimeout(), this.config.getRpcTimeout()
+        );
     }
 
     private void createNode() throws JSONException {

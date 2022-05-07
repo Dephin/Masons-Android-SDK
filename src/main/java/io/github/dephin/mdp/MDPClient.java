@@ -17,15 +17,17 @@ public class MDPClient implements MDPProtocol {
     private MDPHandler handler;
     private Map<String, RPCWaiter> rpcWaiters = new HashMap<String, RPCWaiter>();
     private Set<String> ackCache = new HashSet<String>();
-    private long rpcTimeout = 1L;
-    private int connectTimeout = 100;
+    private long rpcTimeout;
+    private int connectTimeout;
     private URI uri;
     private Timer reconnectController = new Timer();
     private ConcurrentLinkedQueue<String> messageQueue = new ConcurrentLinkedQueue<String>();
     private Map<String, String> httpHeaders;
     private WebSocketEndpoint ws = null;
 
-    public MDPClient(String uriStr, MDPHandler handler, Map<String, String> httpHeaders) {
+    public MDPClient(String uriStr, MDPHandler handler,
+                     Map<String, String> httpHeaders,
+                     int connectTimeout, long rpcTimeout) {
         try {
             this.uri = new URI(uriStr);
         } catch (URISyntaxException e) {
@@ -33,11 +35,6 @@ public class MDPClient implements MDPProtocol {
         }
         this.handler = handler;
         this.httpHeaders = httpHeaders;
-    }
-
-    public MDPClient(String uriStr, MDPHandler handler, Map<String, String> httpHeaders,
-                     int connectTimeout, long rpcTimeout) {
-        this(uriStr, handler, httpHeaders);
         this.rpcTimeout = rpcTimeout;
         this.connectTimeout = connectTimeout;
     }
