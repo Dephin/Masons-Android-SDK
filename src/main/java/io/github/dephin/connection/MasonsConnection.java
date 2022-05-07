@@ -121,6 +121,11 @@ public class MasonsConnection implements MDPHandler {
     }
 
     @Override
+    public void receiveEventMessage(String event, JSONObject data) throws Exception {
+
+    }
+
+    @Override
     public void receiveRPCRequest(String event, JSONObject data) {
 
     }
