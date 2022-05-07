@@ -74,7 +74,7 @@ public class ExampleUnitTest {
                 }
             };
             sdk.start();
-            Thread.sleep(100);
+            Thread.sleep(2000);
             Map<String, Object> data = new HashMap<>();
             KnockResult result = sdk.broadcastKnock("12345678", "hi", data);
             if (result != null) {
