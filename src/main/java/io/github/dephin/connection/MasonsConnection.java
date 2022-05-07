@@ -30,7 +30,7 @@ public class MasonsConnection implements MDPHandler {
         this.sdk = sdk;
     }
 
-    private void createNode() throws JSONException {
+    private void createNode() {
         String nodeUrl = this.config.getNodeUrl();
         Map<String, String> headers = new HashMap<String, String>();
         headers.put("Access-Token", this.config.getAgentToken());
@@ -39,18 +39,22 @@ public class MasonsConnection implements MDPHandler {
         this.nodeID = respObj.getString("node_id");
     }
 
-    public void start() throws JSONException {
-        this.createNode();
-        Map<String, String> headers = new HashMap<String, String>();
-        headers.put("Sec-WebSocket-Protocol", "Duplex");
-        headers.put("Access-Token", config.getAgentToken());
-        headers.put("Node-ID", this.nodeID);
+    public void start() {
+        try {
+            this.createNode();
+            Map<String, String> headers = new HashMap<String, String>();
+            headers.put("Sec-WebSocket-Protocol", "Duplex");
+            headers.put("Access-Token", config.getAgentToken());
+            headers.put("Node-ID", this.nodeID);
 
-        this.mdpClient = new MDPClient(
-                this.config.getWsUrl(), this, headers,
-                this.config.getConnectTimeout(), this.config.getRpcTimeout()
-        );
-        this.mdpClient.connect();
+            this.mdpClient = new MDPClient(
+                    this.config.getWsUrl(), this, headers,
+                    this.config.getConnectTimeout(), this.config.getRpcTimeout()
+            );
+            this.mdpClient.connect();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
     }
 
     public void stop() {
