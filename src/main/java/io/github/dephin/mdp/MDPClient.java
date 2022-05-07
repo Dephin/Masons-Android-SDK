@@ -16,7 +16,7 @@ public class MDPClient implements MDPProtocol {
     private boolean connected = false;
     private MDPHandler handler;
     private Map<String, RPCWaiter> rpcWaiters = new HashMap<String, RPCWaiter>();
-    private Set<String> ackCache = new HashSet<String>();
+//    private Map<String, JSONObject> expectedAckMessages = new HashMap<String, JSONObject>();
     private long rpcTimeout;
     private int connectTimeout;
     private URI uri;
@@ -39,26 +39,41 @@ public class MDPClient implements MDPProtocol {
         this.connectTimeout = connectTimeout;
     }
 
-
-    public void sendEvent(String event, JSONObject data) throws JSONException {
-        JSONObject jsonObject = new JSONObject();
-        jsonObject.put("msg_id", this.generateUniID());
-        jsonObject.put("event", event);
-        jsonObject.put("data", data);
-        this.send(data.toString());
+    @Override
+    public void sendMessage(JSONObject msg) {
+        String msgID = this.generateUniID();
+        msg.put("msg_id", msgID);
+//        this.expectedAckMessages.put(msgID, msg);
+        this.send(msg.toString());
     }
 
-    public JSONObject callEvent(String event, JSONObject data) throws JSONException {
+    @Override
+    public void sendEvent(String event, JSONObject data) {
         JSONObject jsonObject = new JSONObject();
-        String rpcID = this.generateUniID();
-        jsonObject.put("msg_id", this.generateUniID());
-        jsonObject.put("rpc_id", rpcID);
         jsonObject.put("event", event);
         jsonObject.put("data", data);
-        this.send(jsonObject.toString());
+        this.sendMessage(data);
+    }
+
+    @Override
+    public JSONObject callRPC(String event, JSONObject data) {
+        JSONObject msg = new JSONObject();
+        String rpcID = this.generateUniID();
+        msg.put("rpc_id", rpcID);
+        msg.put("event", event);
+        msg.put("data", data);
+        this.sendMessage(msg);
         return this.waitForRpcResponse(rpcID);
     }
 
+    @Override
+    public void sendError(String err) {
+        JSONObject obj = new JSONObject();
+        obj.put("error", err);
+        this.send(obj.toString());
+    }
+
+    @Override
     public void connect() {
         if (null != this.ws) {
             if (this.webSocketIsOpen() || this.webSocketIsConnecting()) {
@@ -74,12 +89,14 @@ public class MDPClient implements MDPProtocol {
         this.ws.connect();
     }
 
+    @Override
     public void close() {
         this.reconnectController.cancel();
         this.messageQueue.clear();
         this.ws.close();
     }
 
+    @Override
     public void onOpen() {
         this.connected = true;
         this.reconnectController.cancel();
@@ -96,51 +113,56 @@ public class MDPClient implements MDPProtocol {
         }
     }
 
-
+    @Override
     public void onClose(int code, String reason, boolean remote) {
         this.reconnect();
     }
 
+    @Override
     public void onError(Exception ex) {
 
     }
 
+    @Override
     public void onMessage(String message) {
+        if (message.equals("ping")) {
+            this.send("pong");
+            return;
+        }
+        if (message.equals("pong")) {
+            return;
+        }
+
         try {
-
-            if (message.equals("ping")) {
-                this.send("pong");
-                return;
-            }
-
             JSONObject jsonObject = new JSONObject(message);
 
-            if (jsonObject.has("msg_id")) {
-                String msgID = jsonObject.getString("msg_id");
-                if (this.ackCache.contains(msgID)) {
-                    JSONObject ack = new JSONObject();
-                    ack.put("ack", msgID);
-                    this.send(ack.toString());
-                    this.ackCache.remove(msgID);
-                }
+            if (jsonObject.has("error")) {
+                return;
             }
 
             if (jsonObject.has("ack")) {
-                String ack = jsonObject.getString("ack");
-                JSONObject reply = new JSONObject();
-                reply.put("ack", ack);
-                this.send(reply.toString());
+                String msgID = jsonObject.getString("ack");
+//                this.expectedAckMessages.remove(msgID);
                 return;
             }
+
+            if (!jsonObject.has("msg_id")) {
+                this.sendError("'msg_id' is missing");
+                return;
+            }
+
+            String msgID = jsonObject.getString("msg_id");
+            this.replyAck(msgID);
 
             if (jsonObject.has("rpc_id")) {
                 String rpcID = jsonObject.getString("rpc_id");
                 if (jsonObject.has("echo")) {
                     Object data = jsonObject.get("echo");
-                    this.receiveRpcResponse(rpcID, (JSONObject) data);
+                    this.processRpcResponse(rpcID, (JSONObject) data);
                 } else {
+                    String event = jsonObject.getString("event");
                     Object data = jsonObject.get("data");
-                    this.receiveRpcRequest(rpcID, (JSONObject) data);
+                    this.processRpcRequest(rpcID, event, (JSONObject) data);
                 }
                 return;
             }
@@ -148,13 +170,21 @@ public class MDPClient implements MDPProtocol {
             if (jsonObject.has("event")) {
                 String event = jsonObject.getString("event");
                 JSONObject data = (JSONObject) jsonObject.get("data");
-                this.receiveEvent(event, data);
+                this.processEventMessage(event, data);
+            } else {
+                this.sendError("'event' is missing");
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (JSONException e) {
+            this.sendError("Not valid JSON format");
         }
+
     }
 
+    private void replyAck(String msgID) {
+        JSONObject ack = new JSONObject();
+        ack.put("ack", msgID);
+        this.send(ack.toString());
+    }
 
     private void send(String msg) {
         try {
@@ -216,10 +246,15 @@ public class MDPClient implements MDPProtocol {
         return result;
     }
 
-    private void receiveRpcRequest(String rpcID, JSONObject data) {
+    private void processRpcRequest(String rpcID, String event, JSONObject req) {
+        JSONObject resp = this.handler.processRPCRequest(event, req);
+        resp.put("rpc_id", rpcID);
+        resp.put("event", event);
+        resp.put("data", resp);
+        this.sendMessage(resp);
     }
 
-    private void receiveRpcResponse(String rpcID, JSONObject data) {
+    private void processRpcResponse(String rpcID, JSONObject data) {
         RPCWaiter waiter = this.rpcWaiters.get(rpcID);
         if (null != waiter) {
             waiter.setResult(data);
@@ -227,11 +262,26 @@ public class MDPClient implements MDPProtocol {
         }
     }
 
-    private void receiveEvent(String event, JSONObject data) throws Exception {
-        this.handler.receiveEventMessage(event, data);
+    private void processEventMessage(String event, JSONObject data) {
+        this.handler.processEventMessage(event, data);
     }
 
     private String generateUniID() {
         return UUID.randomUUID().toString();
     }
+
+//    private void expectAck() {
+//        // TODO: use thread pool
+//        new Thread(() -> {
+//            try {
+//                Thread.sleep(1000);
+//                if (expectedAckMessages.containsKey(msgID)) {
+//                    JSONObject msg = expectedAckMessages.get(msgID);
+//                    send(msg.toString());
+//                }
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+//        }).start();
+//    }
 }

@@ -1,6 +1,7 @@
 package io.github.dephin.connection;
 
 import io.github.dephin.connection.models.UtteranceResponse;
+import io.github.dephin.exceptions.MDPEventException;
 import io.github.dephin.session.models.CreatingSessionOfCallee;
 import io.github.dephin.MasonsSDKConfig;
 import io.github.dephin.session.models.ReplyFromCallee;
@@ -8,8 +9,6 @@ import io.github.dephin.session.models.UtteranceFromCaller;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -59,14 +58,14 @@ public class MasonsConnection implements MDPHandler {
     }
 
     public JSONObject callKnockEvent(JSONObject data) throws JSONException {
-        return this.mdpClient.callEvent("knock", data);
+        return this.mdpClient.callRPC("knock", data);
     }
 
     public UtteranceResponse callUtteranceEvent(String sessionID, String text) throws JSONException {
         JSONObject data = new JSONObject();
         data.put("session_id", sessionID);
         data.put("text", text);
-        JSONObject resp = this.mdpClient.callEvent("utterance", data);
+        JSONObject resp = this.mdpClient.callRPC("utterance", data);
         String respText = resp.getString("text");
         boolean respIsEnd = resp.getBoolean("is_end");
         return new UtteranceResponse(respText, respIsEnd);
@@ -80,7 +79,8 @@ public class MasonsConnection implements MDPHandler {
         this.mdpClient.sendEvent("reply", data);
     }
 
-    public void receiveMessage(String event, JSONObject data) throws Exception {
+    @Override
+    public void processEventMessage(String event, JSONObject data) {
         String sessionID = data.getString("session_id");
 
         switch (event) {
@@ -116,17 +116,12 @@ public class MasonsConnection implements MDPHandler {
                 break;
             }
             default:
-                throw new Exception("This event is not supported");
+                this.mdpClient.sendError("This event is not supported");
         }
     }
 
     @Override
-    public void receiveEventMessage(String event, JSONObject data) throws Exception {
-
-    }
-
-    @Override
-    public void receiveRPCRequest(String event, JSONObject data) {
-
+    public JSONObject processRPCRequest(String event, JSONObject data) {
+        return new JSONObject();
     }
 }

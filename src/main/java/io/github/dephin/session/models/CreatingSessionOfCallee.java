@@ -6,4 +6,8 @@ public class CreatingSessionOfCallee {
     public void setAccountKey(String accountKey) {
         this.accountKey = accountKey;
     }
+
+    public String getAccountKey() {
+        return accountKey;
+    }
 }

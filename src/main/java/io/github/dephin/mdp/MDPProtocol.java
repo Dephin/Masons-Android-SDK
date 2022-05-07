@@ -4,8 +4,10 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 public interface MDPProtocol {
-    void sendEvent(String event, JSONObject data) throws JSONException;
-    JSONObject callEvent(String event, JSONObject data) throws JSONException;
+    void sendMessage(JSONObject msg);
+    void sendEvent(String event, JSONObject data);
+    JSONObject callRPC(String event, JSONObject data);
+    void sendError(String err);
     void connect();
     void close();
     void onOpen();

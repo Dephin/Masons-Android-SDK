@@ -8,4 +8,12 @@ public class UtteranceResponse {
         this.text = text;
         this.isEnd = isEnd;
     }
+
+    public String getText() {
+        return text;
+    }
+
+    public boolean getIsEnd() {
+        return isEnd;
+    }
 }
