@@ -80,36 +80,48 @@ public class MasonsConnection implements MDPHandler {
         this.mdpClient.sendEvent("reply", data);
     }
 
-    public void receiveMessage(String event, JSONObject data) throws Exception {
+    public void receiveEventMessage(String event, JSONObject data) throws Exception {
         String sessionID = data.getString("session_id");
 
-        if (event.equals("utterance")) {
-            String text = data.getString("text");
-            CallerSession callerSession = this.sdk.getCallerSessionBySessionID(sessionID);
-            UtteranceFromCaller utterance = new UtteranceFromCaller(callerSession, text);
-            this.sdk.onReceivingUtteranceFromCaller(utterance);
-        } else if (event.equals("reply")) {
-            ReplyFromCallee reply = new ReplyFromCallee();
-            this.sdk.onReceivingReplyFromCallee(reply);
-        } else if (event.equals("create")) {
-            String accountKey = data.getString("account_key");
-            this.sdk.createCalleeSession(sessionID, accountKey);
+        switch (event) {
+            case "utterance":
+                String text = data.getString("text");
+                CallerSession callerSession = this.sdk.getCallerSessionBySessionID(sessionID);
+                UtteranceFromCaller utterance = new UtteranceFromCaller(callerSession, text);
+                this.sdk.onReceivingUtteranceFromCaller(utterance);
+                break;
+            case "reply":
+                ReplyFromCallee reply = new ReplyFromCallee();
+                this.sdk.onReceivingReplyFromCallee(reply);
+                break;
+            case "create": {
+                String accountKey = data.getString("account_key");
+                this.sdk.createCalleeSession(sessionID, accountKey);
 
-            CreatingSessionOfCallee sessionWrapper = new CreatingSessionOfCallee();
-            sessionWrapper.setAccountKey(accountKey);
+                CreatingSessionOfCallee sessionWrapper = new CreatingSessionOfCallee();
+                sessionWrapper.setAccountKey(accountKey);
 
-            this.sdk.onCreatingSessionOfCallee(sessionWrapper);
-        } else if (event.equals("exit")) {
-            CalleeSession session = this.sdk.getCalleeSessionBySessionID(sessionID);
-            String accountKey = session.getAccountKey();
-            this.sdk.removeCalleeSession(sessionID, accountKey);
+                this.sdk.onCreatingSessionOfCallee(sessionWrapper);
+                break;
+            }
+            case "exit": {
+                CalleeSession session = this.sdk.getCalleeSessionBySessionID(sessionID);
+                String accountKey = session.getAccountKey();
+                this.sdk.removeCalleeSession(sessionID, accountKey);
 
-            CreatingSessionOfCallee sessionWrapper = new CreatingSessionOfCallee();
-            sessionWrapper.setAccountKey(accountKey);
+                CreatingSessionOfCallee sessionWrapper = new CreatingSessionOfCallee();
+                sessionWrapper.setAccountKey(accountKey);
 
-            this.sdk.onCreatingSessionOfCallee(sessionWrapper);
-        } else {
-            throw new Exception("This event is not supported");
+                this.sdk.onCreatingSessionOfCallee(sessionWrapper);
+                break;
+            }
+            default:
+                throw new Exception("This event is not supported");
         }
+    }
+
+    @Override
+    public void receiveRPCRequest(String event, JSONObject data) {
+
     }
 }

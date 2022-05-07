@@ -4,7 +4,7 @@ public class MasonsSDKConfig {
     private String wsUrl = "wss://svc.masons.mrs.ai/api/v1/masons";
     private String nodeUrl = "https://svc.masons.mrs.ai/api/v1/masons/nodes";
     private String agentToken;
-    private long rpcTimeout = 1L;
+    private long rpcTimeout = 100L;
     private int connectTimeout = 1000;
 
     public MasonsSDKConfig(String agentToken) {

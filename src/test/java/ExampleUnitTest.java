@@ -10,8 +10,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Semaphore;
 
 import org.junit.Test;
 
@@ -93,7 +95,7 @@ public class ExampleUnitTest {
                     }
                 }
             }
-        } catch (URISyntaxException | JSONException | IOException e) {
+        } catch (JSONException | IOException e) {
             e.printStackTrace();
         }
     }
@@ -134,7 +136,24 @@ public class ExampleUnitTest {
     }
 
     @Test
-    public void connectWithMDPClient() {
-
+    public void lock() {
+        System.out.println((new Date()).toString());
+        Semaphore lock = new Semaphore(0);
+        Thread t1 = new Thread(() -> {
+            System.out.println("run thread");
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            lock.release();
+        });
+        t1.start();
+        try {
+            lock.acquire();
+            System.out.println((new Date()).toString());
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 }

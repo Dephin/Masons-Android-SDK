@@ -20,7 +20,7 @@ public class MDPClient implements MDPProtocol {
     private long rpcTimeout;
     private int connectTimeout;
     private URI uri;
-    private Timer reconnectController = new Timer();
+    private Timer reconnectController = null;
     private ConcurrentLinkedQueue<String> messageQueue = new ConcurrentLinkedQueue<String>();
     private Map<String, String> httpHeaders;
     private WebSocketEndpoint ws = null;
@@ -56,11 +56,7 @@ public class MDPClient implements MDPProtocol {
         jsonObject.put("event", event);
         jsonObject.put("data", data);
         this.send(jsonObject.toString());
-        String result = this.waitForRpcResponse(rpcID);
-        if (null != result) {
-            return new JSONObject(result);
-        }
-        return null;
+        return this.waitForRpcResponse(rpcID);
     }
 
     public void connect() {
@@ -112,8 +108,8 @@ public class MDPClient implements MDPProtocol {
     public void onMessage(String message) {
         try {
 
-            if (message.equals("0xa")) {
-                this.send("0xb");
+            if (message.equals("ping")) {
+                this.send("pong");
                 return;
             }
 
@@ -139,8 +135,13 @@ public class MDPClient implements MDPProtocol {
 
             if (jsonObject.has("rpc_id")) {
                 String rpcID = jsonObject.getString("rpc_id");
-                Object data = jsonObject.get("data");
-                this.receiveRpcResponse(rpcID, (JSONObject) data);
+                if (jsonObject.has("echo")) {
+                    Object data = jsonObject.get("echo");
+                    this.receiveRpcResponse(rpcID, (JSONObject) data);
+                } else {
+                    Object data = jsonObject.get("data");
+                    this.receiveRpcRequest(rpcID, (JSONObject) data);
+                }
                 return;
             }
 
@@ -175,6 +176,11 @@ public class MDPClient implements MDPProtocol {
 
         this.connected = false;
 
+        if (null != this.reconnectController) {
+            this.reconnectController.cancel();
+        }
+
+        this.reconnectController = new Timer();
         this.reconnectController.schedule(
                 new TimerTask() {
                     @Override
@@ -201,24 +207,28 @@ public class MDPClient implements MDPProtocol {
         return this.ws.getReadyState() == WebSocket.READYSTATE.CONNECTING;
     }
 
-    private String waitForRpcResponse(String rpcID) {
+    private JSONObject waitForRpcResponse(String rpcID) {
         RPCWaiter waiter = new RPCWaiter(this.rpcTimeout);
         this.rpcWaiters.put(rpcID, waiter);
         waiter.acquire();
-        String result = waiter.getResult();
+        JSONObject result = waiter.getResult();
         this.rpcWaiters.remove(rpcID);
         return result;
+    }
+
+    private void receiveRpcRequest(String rpcID, JSONObject data) {
     }
 
     private void receiveRpcResponse(String rpcID, JSONObject data) {
         RPCWaiter waiter = this.rpcWaiters.get(rpcID);
         if (null != waiter) {
+            waiter.setResult(data);
             waiter.release();
         }
     }
 
     private void receiveEvent(String event, JSONObject data) throws Exception {
-        this.handler.receiveMessage(event, data);
+        this.handler.receiveEventMessage(event, data);
     }
 
     private String generateUniID() {
